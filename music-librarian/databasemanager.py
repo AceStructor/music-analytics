@@ -131,8 +131,9 @@ class DatabaseWriter:
                     "date": date,
                 })
                 row = cur.fetchone()
-            log.debug("Created new empty playlist", name=name, date=date, playlist=row[0])
-            return row[0]
+                playlist_id = row["id"]
+            log.debug("Created new empty playlist", name=name, date=date, playlist=playlist_id)
+            return playlist_id
         except psycopg2.Error as e:
             log.error("Error creating empty playlist", error=str(e), exc_info=True, name=name, date=date)
             self.conn.rollback()
