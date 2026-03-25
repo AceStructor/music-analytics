@@ -130,7 +130,7 @@ class DatabaseWriter:
                     "name": name,
                     "date": date,
                 })
-            row = cur.fetchone()
+                row = cur.fetchone()
             log.debug("Created new empty playlist", name=name, date=date, playlist=row[0])
             return row[0]
         except psycopg2.Error as e:
