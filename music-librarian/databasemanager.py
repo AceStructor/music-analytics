@@ -183,9 +183,11 @@ class DatabaseWriter:
                 })
             self.conn.commit()
             log.debug("Added tracks to playlist", playlist=playlist_id, tracks=len(tracks))
+            return len(tracks)
         except psycopg2.Error as e:
             log.error("Error adding tracks to playlist", error=str(e), exc_info=True, playlist=playlist_id)
             self.conn.rollback()
+            return None
 
     def delete_track_from_playlist(self, playlist_id, track_id):
         try:

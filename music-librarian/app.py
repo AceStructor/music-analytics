@@ -48,7 +48,7 @@ def remove_album():
 
 @app.route("/playlist/sync", methods=["POST"])
 def sync_playlists():
-    mapping = SubsonicClient.build_mbid_mapping()
+    mapping = SubsonicClient().build_mbid_mapping()
     app.db_writer.insert_navidrome_ids(mapping)
 
     playlists = app.db_reader.load_playlists()
@@ -56,25 +56,25 @@ def sync_playlists():
     skipped = []
 
     for playlist in playlists:
-        print(f"\nSyncing: {playlist['name']}")
+        log.debug(f"\nSyncing: {playlist['name']}")
 
         songs = app.db_reader.load_playlist_tracks(playlist["playlist_id"])
 
         if not songs:
-            print(" -> skip (no tracks)")
+            log.debug(" -> skip (no tracks)")
             skipped.append(playlist["playlist_id"])
             continue
 
         song_navidrome_ids = [song["navidrome_id"] for song in songs]
 
         if playlist["navidrome_id"] is None:
-            print(" -> creating playlist")
-            new_id = SubsonicClient.create_playlist(playlist["name"], song_navidrome_ids)
+            log.debug(" -> creating playlist")
+            new_id = SubsonicClient().create_playlist(playlist["name"], song_navidrome_ids)
             app.db_writer.update_playlist_navidrome_id(playlist["playlist_id"], new_id)
             synced.append({"playlist_id": playlist["playlist_id"], "navidrome_id": new_id, "action": "created"})
         else:
-            print(" -> replacing playlist")
-            new_id = SubsonicClient.replace_playlist(playlist["navidrome_id"], song_navidrome_ids)
+            log.debug(" -> replacing playlist")
+            new_id = SubsonicClient().replace_playlist(playlist["navidrome_id"], song_navidrome_ids)
             app.db_writer.update_playlist_navidrome_id(playlist["playlist_id"], new_id)
             synced.append({"playlist_id": playlist["playlist_id"], "navidrome_id": new_id, "action": "replaced"})
 
@@ -179,7 +179,7 @@ def delete_playlist(playlist_id):
     playlist = app.db_reader.search_playlist(playlist_id)
 
     if playlist["navidrome_id"]:
-        SubsonicClient.delete_playlist(playlist["navidrome_id"])
+        SubsonicClient().delete_playlist(playlist["navidrome_id"])
 
     deleted = app.db_writer.delete_playlist(playlist_id)
     return jsonify({"playlist_id": playlist_id, "deleted": bool(deleted), "status": "deleted"}), 200
