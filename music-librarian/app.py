@@ -1,4 +1,4 @@
-import time
+from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
@@ -91,7 +91,7 @@ def add_playlist():
     
     name = month + " " + year
     date = "01 " + name
-    date_normal = time.strptime(date, "%d %B %y")
+    date_normal = datetime.strptime(date, "%d %B %y")
     date = date_normal.strftime("%d.%m.%Y")
 
     if name_overwrite:
@@ -126,7 +126,7 @@ def add_empty_playlist():
     
     name = month + " " + year
     date = "01 " + name
-    date_normal = time.strptime(date, "%d %B %y")
+    date_normal = datetime.strptime(date, "%d %B %y")
     date = date_normal.strftime("%d.%m.%Y")
 
     if name_overwrite:

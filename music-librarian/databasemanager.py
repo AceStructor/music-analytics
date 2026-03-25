@@ -234,7 +234,6 @@ class DatabaseReader:
                 cur.execute("""
                     SELECT id, name, navidrome_id
                     FROM playlists
-                    ORDER BY month
                     WHERE id = %s
                 """, (playlist_id,))
                 row =  cur.fetchone()
@@ -264,7 +263,7 @@ class DatabaseReader:
             log.error("Error reading playlist tracks", error=str(e), exc_info=True, playlist=playlist_id)
             self.conn.rollback()
 
-        tracks = {}
+        tracks = []
         for track in rows:
             tracks.append({
                 "id": track[0],
