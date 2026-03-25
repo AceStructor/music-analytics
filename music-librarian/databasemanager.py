@@ -132,6 +132,7 @@ class DatabaseWriter:
                 })
                 row = cur.fetchone()
                 playlist_id = row["id"]
+            self.conn.commit()
             log.debug("Created new empty playlist", name=name, date=date, playlist=playlist_id)
             return playlist_id
         except psycopg2.Error as e:
