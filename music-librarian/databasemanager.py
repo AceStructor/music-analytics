@@ -324,7 +324,7 @@ class DatabaseReader:
             with self.conn.cursor() as cur:
                 cur.execute("""
                     WITH top_tracks AS (
-                        SELECT tnavidrome_id AS track_id, t.title, COUNT(*) AS play_count
+                        SELECT t.id AS track_id, t.title, COUNT(*) AS play_count
                         FROM tracks t
                         JOIN track_plays tp ON tp.track_id = t.id
                         WHERE played_at >= TIMESTAMP %(date)s
