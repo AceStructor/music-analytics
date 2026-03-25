@@ -296,7 +296,7 @@ class DatabaseReader:
                     ), 
 
                     artist_tracks AS (
-                        SELECT t.navidrome_id AS track_id, t.title, a.id, a.name,
+                        SELECT t.id AS track_id, t.title, a.id, a.name,
                             ROW_NUMBER() OVER (PARTITION BY a.id ORDER BY COUNT(tp.*) DESC) AS rank
                         FROM tracks t
                         LEFT JOIN artist_tracks art ON art.track_id = t.id
@@ -305,7 +305,7 @@ class DatabaseReader:
                         WHERE played_at >= TIMESTAMP %(date)s
                             AND played_at < TIMESTAMP %(date)s + interval '1 month'
                             AND art.artist_id IN (SELECT artist_id FROM top_artists)
-                        GROUP BY t.navidrome_id, t.title, a.id, a.name
+                        GROUP BY t.id, t.title, a.id, a.name
                     )
                             
                     SELECT track_id
@@ -324,12 +324,12 @@ class DatabaseReader:
             with self.conn.cursor() as cur:
                 cur.execute("""
                     WITH top_tracks AS (
-                        SELECT t.navidrome_id AS track_id, t.title, COUNT(*) AS play_count
+                        SELECT tnavidrome_id AS track_id, t.title, COUNT(*) AS play_count
                         FROM tracks t
                         JOIN track_plays tp ON tp.track_id = t.id
                         WHERE played_at >= TIMESTAMP %(date)s
                             AND played_at < TIMESTAMP %(date)s + interval '1 month'
-                        GROUP BY t.navidrome_id, t.title
+                        GROUP BY t.id, t.title
                         ORDER BY play_count DESC
                         LIMIT 30
                     )
@@ -366,13 +366,13 @@ class DatabaseReader:
                     ),
 
                     genre_tracks AS (
-                        SELECT t.navidrome_id AS track_id, COUNT(mp.track_id) AS plays
+                        SELECT t.id AS track_id, COUNT(mp.track_id) AS plays
                         FROM tracks t
                         JOIN artist_tracks at ON at.track_id = t.id
                         JOIN artist_genres ag ON ag.artist_id = at.artist_id
                         JOIN top_genre tg ON tg.genre_id = ag.genre_id
                         LEFT JOIN month_plays mp ON mp.track_id = t.id
-                        GROUP BY t.navidrome_id
+                        GROUP BY t.id
                     )
 
                     SELECT track_id
@@ -411,7 +411,7 @@ class DatabaseReader:
                         LIMIT 1
                     )
 
-                    SELECT t.navidrome_id
+                    SELECT t.id
                     FROM month_plays mp
                     JOIN tracks t ON t.id = mp.track_id
                     JOIN artist_tracks at ON at.track_id = t.id
@@ -449,7 +449,7 @@ class DatabaseReader:
                         LIMIT 1
                     )
 
-                    SELECT t.navidrome_id
+                    SELECT t.id
                     FROM tracks t
                     JOIN artist_tracks at ON at.track_id = t.id
                     JOIN artist_genres ag ON ag.artist_id = at.artist_id
@@ -486,7 +486,7 @@ class DatabaseReader:
                         AND tp.played_at < TIMESTAMP %(date)s + interval '1 month'
                     )
 
-                    SELECT t.navidrome_id
+                    SELECT t.id
                     FROM tracks t
                     JOIN artist_tracks at ON at.track_id = t.id
                     JOIN artist_genres ag ON ag.artist_id = at.artist_id
