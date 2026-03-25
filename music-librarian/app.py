@@ -121,7 +121,7 @@ def add_playlist():
     genre_wildcard = app.db_reader.get_genre_wildcard(date)
 
     try:
-        tracklist = MagicPlaylister.make_playlist(wildness, top_artist_tracks, top_tracks, top_genre_top_tracks, top_genre_single_listens, top_genre_wildcard, genre_wildcard)
+        tracklist = MagicPlaylister().make_playlist(wildness, top_artist_tracks, top_tracks, top_genre_top_tracks, top_genre_single_listens, top_genre_wildcard, genre_wildcard)
     except ValueError as e:
         return {"error": "error creating playlist: " + str(e)}, 500
 
