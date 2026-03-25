@@ -366,7 +366,7 @@ class DatabaseReader:
                     ),
 
                     genre_tracks AS (
-                        SELECT t.navidrome_id, COUNT(mp.track_id) AS plays
+                        SELECT t.navidrome_id AS track_id, COUNT(mp.track_id) AS plays
                         FROM tracks t
                         JOIN artist_tracks at ON at.track_id = t.id
                         JOIN artist_genres ag ON ag.artist_id = at.artist_id
@@ -375,7 +375,7 @@ class DatabaseReader:
                         GROUP BY t.navidrome_id
                     )
 
-                    SELECT id
+                    SELECT track_id
                     FROM genre_tracks
                     ORDER BY plays DESC
                     LIMIT 10
