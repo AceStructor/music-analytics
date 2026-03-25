@@ -1,189 +1,14 @@
-import os
 import time
-import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from typing import Optional, List
-from dataclasses import dataclass
-
 import psycopg2
-from psycopg2.extras import RealDictCursor
 
 from logger import log
 from config import DB_CONFIG
-from sql_queries import INSERT_SQL, DELETE_SQL
+from libmanager import MusicBrainzClient
+from databasemanager import DatabaseWriter, DatabaseReader
+from playlistmanager import SubsonicClient, MagicPlaylister
 
-app = Flask(__name__)
-
-MB_BASE = "https://musicbrainz.org/ws/2"
-USER_AGENT = "MusikmanagementApp/1.0 (your@email.com)"
-
-
-@dataclass
-class Track:
-    artists: list[str]
-    album: str
-    title: str
-    duration: int
-    album_mbid: Optional[str] = None
-    track_mbid: Optional[str] = None    
-
-
-class DatabaseWriter:
-
-    def __init__(self, conn):
-        self.conn = conn
-
-    def insert_track(self, track: Track) -> None:
-        try:
-            with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(INSERT_SQL, {
-                    "artist_names": track.artists,
-                    "album_title": track.album,
-                    "track_title": track.title,
-                    "duration_ms": track.duration,
-                    "album_mbid": track.album_mbid,
-                    "track_mbid": track.track_mbid
-                })
-            self.conn.commit()
-            log.debug("Inserted track", track_title=track.title)
-        except psycopg2.Error as e:
-            log.error("Error inserting track", error=str(e), exc_info=True)
-            self.conn.rollback()
-
-    def bulk_insert_tracks(self, tracks: list[Track]) -> int:
-        if not tracks:
-            return 0
-
-        for track in tracks:
-            self.insert_track(track)
-
-        return len(tracks)
-    
-    def delete_album(self, mbid: str):
-        try:
-            with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(DELETE_SQL, {
-                    "album_mbid": mbid
-                })
-                result = cur.fetchone()
-            self.conn.commit()
-            log.debug("Deleted album", album_mbid=mbid)
-        except psycopg2.Error as e:
-            log.error("Error inserting track", error=str(e), exc_info=True)
-            self.conn.rollback()
-
-        return jsonify({
-            "deleted_artists": result[2],
-            "deleted_tracks": result[1]
-        })
-
-
-class MusicBrainzClient:
-
-    _session: Optional[requests.Session] = None
-    _last_request_time: float = 0.0
-
-    def __init__(self):
-        self.base_url = MB_BASE
-
-    def _get_session(self) -> requests.Session:
-        if not self._session:
-            self._session = requests.Session()
-            self._session.headers.update({
-                "User-Agent": USER_AGENT
-            })
-        return self._session
-
-    def _rate_limit(self):
-        elapsed = time.time() - self._last_request_time
-        if elapsed < 1.0:
-            time.sleep(1.0 - elapsed)
-
-    def _get(self, endpoint: str, params: dict) -> dict:
-        self._rate_limit()
-        session = self._get_session()
-
-        url = f"{self.base_url}/{endpoint}"
-        # copy params so we don't mutate caller dict
-        params = (params or {}).copy()
-        params["fmt"] = "json"
-
-        max_retries = 3
-        backoff = 1.0
-
-        for attempt in range(1, max_retries + 1):
-            try:
-                response = session.get(url, params=params, timeout=10)
-
-                # handle explicit rate-limit from server
-                if response.status_code == 429:
-                    retry_after = response.headers.get("Retry-After")
-                    try:
-                        wait = float(retry_after) if retry_after else backoff
-                    except Exception:
-                        wait = backoff
-                    log.warning("MusicBrainz rate limited, sleeping before retry", wait=wait, attempt=attempt)
-                    time.sleep(wait)
-                    self._last_request_time = time.time()
-                    backoff *= 2
-                    continue
-
-                response.raise_for_status()
-
-                try:
-                    data = response.json()
-                except ValueError as e:
-                    log.error("Failed to parse JSON from MusicBrainz", error=str(e), url=url, attempt=attempt)
-                    if attempt == max_retries:
-                        raise
-                    time.sleep(backoff)
-                    backoff *= 2
-                    continue
-
-                self._last_request_time = time.time()
-                return data
-
-            except requests.exceptions.RequestException as e:
-                log.warning("MusicBrainz request error, will retry if attempts remain", error=str(e), url=url, attempt=attempt)
-                if attempt == max_retries:
-                    raise
-                time.sleep(backoff)
-                backoff *= 2
-
-    def fetch_release(self, mbid: str) -> List[Track]:
-        data = self._get(f"release/{mbid}", {
-            "inc": "recordings+artists"
-        })
-
-        tracks = []
-
-        for medium in data["media"]:
-            for t in medium["tracks"]:
-                recording = t["recording"]
-                artists = []
-                for ac in recording["artist-credit"]:
-                    if "name" in ac:
-                        artists.append(ac["name"])
-
-
-                tracks.append(
-                    Track(
-                        artists=artists,
-                        album=data["title"],
-                        title=recording["title"],
-                        duration=recording.get("length"),
-                        album_mbid=mbid,
-                        track_mbid=recording.get("id")
-                    )
-                )
-
-        return tracks
-
-
-# -------------------------
-# API Endpoints
-# -------------------------
 app = Flask(__name__)
 CORS(app)
 
@@ -221,6 +46,167 @@ def remove_album():
         "artists_deleted": deleted["deleted_artists"]
     })
 
+@app.route("/playlist/sync", methods=["POST"])
+def sync_playlists():
+    mapping = SubsonicClient.build_mbid_mapping()
+    app.db_writer.insert_navidrome_ids(mapping)
+
+    playlists = app.db_reader.load_playlists()
+
+    for playlist in playlists:
+        print(f"\nSyncing: {playlist["name"]}")
+
+        songs = app.db_reader.load_playlist_tracks(playlist["playlist_id"])
+
+        if not songs:
+            print(" -> skip (no tracks)")
+            continue
+
+        song_navidrome_ids = []
+        for song in songs:
+            song_navidrome_ids.append(song["navidrome_id"])
+
+        if playlist["navidrome_id"] is None:
+            print(" -> creating playlist")
+            new_id = SubsonicClient.create_playlist(playlist["name"], song_navidrome_ids)
+            app.db_writer.update_playlist_navidrome_id(playlist["playlist_id"], new_id)
+
+        else:
+            print(" -> replacing playlist")
+            new_id = SubsonicClient.replace_playlist(playlist["navidrome_id"], song_navidrome_ids)
+            app.db_writer.update_playlist_navidrome_id(playlist["playlist_id"], new_id)
+
+        log.debug(f" -> done ({len(song_navidrome_ids)} tracks)")
+
+@app.route("/playlist/add", methods=["POST"])
+def add_playlist():
+    name_overwrite = request.json.get("name")
+    month = request.json.get("month")
+    year = request.json.get("year")
+    auto = request.json.get("auto")
+    wildness = request.json.get("wildness")
+
+    if not month or not year:
+        return {"error": "json body inclomplete, month or year missing"}, 400
+    
+    name = month + " " + year
+    date = "01 " + name
+    date_normal = time.strptime(date, "%d %B %y")
+    date = date_normal.strftime("%d.%m.%Y")
+
+    if name_overwrite:
+        name = name_overwrite
+    
+    if auto:
+        app.db_writer.insert_auto_playlist(name, date)
+    else:
+        playlist_id = app.db_writer.create_empty_playlist(name, date)
+        if not playlist_id:
+            return {"error": "error creating empty playlist"}, 500
+        top_artist_tracks = app.db_reader.get_top_artist_tracks(date)
+        top_tracks = app.db_reader.get_top_tracks(date)
+        top_genre_top_tracks = app.db_reader.get_top_genre_top_tracks(date)
+        top_genre_single_listens = app.db_reader.get_top_genre_single_listens(date)
+        top_genre_wildcard = app.db_reader.get_top_genre_wildcard(date)
+        genre_wildcard = app.db_reader.get_genre_wildcard(date)
+        try:
+            tracklist = MagicPlaylister.make_playlist(wildness, top_artist_tracks, top_tracks, top_genre_top_tracks, top_genre_single_listens, top_genre_wildcard, genre_wildcard)
+        except ValueError as e:
+            return {"error": "error creating playlist: " + e}, 500
+        app.db_writer.insert_tracks_into_playlist(playlist_id, tracklist)
+
+@app.route("/playlist/add/empty", methods=["POST"])
+def add_empty_playlist():
+    name_overwrite = request.json.get("name")
+    month = request.json.get("month")
+    year = request.json.get("year")
+
+    if not month or not year:
+        return {"error": "json body inclomplete, month or year missing"}, 400
+    
+    name = month + " " + year
+    date = "01 " + name
+    date_normal = time.strptime(date, "%d %B %y")
+    date = date_normal.strftime("%d.%m.%Y")
+
+    if name_overwrite:
+        name = name_overwrite
+
+    playlist_id = app.db_writer.create_empty_playlist(name, date)
+
+    return jsonify({
+        "playlist_id": playlist_id
+    })
+
+@app.route("/playlist/all", methods=["GET"])
+def get_playlists():
+    playlists = app.db_reader.load_playlists()
+
+    return jsonify({
+        "playlists": playlists
+    })
+
+@app.route("/playlist/<playlist_id>", methods=["GET"])
+def get_playlist(playlist_id):
+    playlist = app.db_reader.search_playlist(playlist_id)
+
+    return jsonify({
+        "playlist": playlist
+    })
+
+@app.route("/playlist/<playlist_id>", methods=["DELETE"])
+def delete_playlist(playlist_id):
+    playlist = app.db_reader.search_playlist(playlist_id)
+
+    if playlist["navidrome_id"]:
+        SubsonicClient.delete_playlist(playlist["navidrome_id"])
+
+    app.db_writer.delete_playlist(playlist_id)
+
+@app.route("/playlist/<playlist_id>", methods=["UPDATE"])
+def update_playlist(playlist_id):
+    name = request.json.get("name")
+
+    app.db_writer.update_playlist_name(playlist_id, name)
+
+    playlist = app.db_reader.search_playlist(playlist_id)
+
+    return jsonify({
+        "playlist": playlist
+    })
+
+@app.route("/playlist/tracks/<playlist_id>", methods=["GET"])
+def get_playlist_tracks(playlist_id):
+    tracks = app.db_reader.load_playlist_tracks(playlist_id)
+
+    return jsonify({
+        "playlist": playlist_id,
+        "tracks": tracks
+    })
+
+@app.route("/playlist/tracks/<playlist_id>/<track_id>", methods=["DELETE"])
+def delete_track_from_playlist(playlist_id, track_id):
+    app.db_writer.delete_track_from_playlist(playlist_id, track_id)
+
+@app.route("/playlist/tracks/<playlist_id>/add", methods=["POST"])
+def add_tracks_to_playlist(playlist_id):
+    tracks = request.json.get("tracks")
+
+    if not tracks:
+        return {"error": "track list is empty"}, 400 
+    
+    app.db_writer.insert_tracks_into_playlist(playlist_id, tracks)
+
+    new_tracks = app.db_reader.load_playlist_tracks(playlist_id)
+
+    return jsonify({
+        "playlist": playlist_id,
+        "tracks": new_tracks
+    })
+
+#@app.route("/artists/all", methods=["GET"])
+#@app.route("/albums/<artist_id>/all", methods=["GET"])
+#@app.route("/tracks/<album_id>/all", methods=["GET"])
 
 def create_app():
     try:
@@ -229,6 +215,7 @@ def create_app():
         log.warning("Database connection error, will retry", error=str(e), exc_info=True)
 
     app.db_writer = DatabaseWriter(conn)
+    app.db_reader = DatabaseReader(conn)
 
     return app
 

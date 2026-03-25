@@ -11,4 +11,8 @@ DB_CONFIG = {
     "password": os.getenv("POSTGRES_PASSWORD"),
 }
 
+LOCAL_MUSICSTREAM_URL = os.getenv("LOCAL_MUSICSTREAM_URL", "http://localhost:5217")
+NAVIDROME_USER = os.getenv("NAVIDROME_USER", "admin")
+NAVIDROME_PASSWORD = os.getenv("NAVIDROME_PASSWORD", "admin")
+
 ENVIRONMENT = os.getenv("ENVIRONMENT", "dev")
