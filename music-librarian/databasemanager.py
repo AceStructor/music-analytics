@@ -173,11 +173,10 @@ class DatabaseWriter:
         try:
             with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    INSERT INTO playlist_tracks (playlist_id, track_id, position)
+                    INSERT INTO playlist_tracks (playlist_id, track_id)
                     SELECT
                         %(playlist_id)s,
-                        UNNEST(%(tracks)s::int[]),
-                        ROW_NUMBER() OVER ()
+                        UNNEST(%(tracks)s::int[])
                 """, {
                     "playlist_id": playlist_id,
                     "tracks": tracks,
