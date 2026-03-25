@@ -52,31 +52,39 @@ def sync_playlists():
     app.db_writer.insert_navidrome_ids(mapping)
 
     playlists = app.db_reader.load_playlists()
+    synced = []
+    skipped = []
 
     for playlist in playlists:
-        print(f"\nSyncing: {playlist["name"]}")
+        print(f"\nSyncing: {playlist['name']}")
 
         songs = app.db_reader.load_playlist_tracks(playlist["playlist_id"])
 
         if not songs:
             print(" -> skip (no tracks)")
+            skipped.append(playlist["playlist_id"])
             continue
 
-        song_navidrome_ids = []
-        for song in songs:
-            song_navidrome_ids.append(song["navidrome_id"])
+        song_navidrome_ids = [song["navidrome_id"] for song in songs]
 
         if playlist["navidrome_id"] is None:
             print(" -> creating playlist")
             new_id = SubsonicClient.create_playlist(playlist["name"], song_navidrome_ids)
             app.db_writer.update_playlist_navidrome_id(playlist["playlist_id"], new_id)
-
+            synced.append({"playlist_id": playlist["playlist_id"], "navidrome_id": new_id, "action": "created"})
         else:
             print(" -> replacing playlist")
             new_id = SubsonicClient.replace_playlist(playlist["navidrome_id"], song_navidrome_ids)
             app.db_writer.update_playlist_navidrome_id(playlist["playlist_id"], new_id)
+            synced.append({"playlist_id": playlist["playlist_id"], "navidrome_id": new_id, "action": "replaced"})
 
         log.debug(f" -> done ({len(song_navidrome_ids)} tracks)")
+
+    return jsonify({
+        "status": "success",
+        "synced": synced,
+        "skipped": skipped
+    }), 200
 
 @app.route("/playlist/add", methods=["POST"])
 def add_playlist():
@@ -87,33 +95,45 @@ def add_playlist():
     wildness = request.json.get("wildness")
 
     if not month or not year:
-        return {"error": "json body inclomplete, month or year missing"}, 400
+        return {"error": "json body incomplete, month or year missing"}, 400
     
     name = month + " " + year
     date = "01 " + name
     date_normal = datetime.strptime(date, "%d %B %y")
-    date = date_normal.strftime("%d.%m.%Y")
+    date = date_normal.strftime("%Y-%m-%d")
 
     if name_overwrite:
         name = name_overwrite
-    
+
     if auto:
-        app.db_writer.insert_auto_playlist(name, date)
-    else:
-        playlist_id = app.db_writer.create_empty_playlist(name, date)
-        if not playlist_id:
-            return {"error": "error creating empty playlist"}, 500
-        top_artist_tracks = app.db_reader.get_top_artist_tracks(date)
-        top_tracks = app.db_reader.get_top_tracks(date)
-        top_genre_top_tracks = app.db_reader.get_top_genre_top_tracks(date)
-        top_genre_single_listens = app.db_reader.get_top_genre_single_listens(date)
-        top_genre_wildcard = app.db_reader.get_top_genre_wildcard(date)
-        genre_wildcard = app.db_reader.get_genre_wildcard(date)
-        try:
-            tracklist = MagicPlaylister.make_playlist(wildness, top_artist_tracks, top_tracks, top_genre_top_tracks, top_genre_single_listens, top_genre_wildcard, genre_wildcard)
-        except ValueError as e:
-            return {"error": "error creating playlist: " + e}, 500
-        app.db_writer.insert_tracks_into_playlist(playlist_id, tracklist)
+        playlist_id = app.db_writer.insert_auto_playlist(name, date)
+        return jsonify({"playlist_id": playlist_id, "name": name, "date": date, "auto": True, "status": "created"}), 201
+
+    playlist_id = app.db_writer.create_empty_playlist(name, date)
+    if not playlist_id:
+        return {"error": "error creating empty playlist"}, 500
+
+    top_artist_tracks = app.db_reader.get_top_artist_tracks(date)
+    top_tracks = app.db_reader.get_top_tracks(date)
+    top_genre_top_tracks = app.db_reader.get_top_genre_top_tracks(date)
+    top_genre_single_listens = app.db_reader.get_top_genre_single_listens(date)
+    top_genre_wildcard = app.db_reader.get_top_genre_wildcard(date)
+    genre_wildcard = app.db_reader.get_genre_wildcard(date)
+
+    try:
+        tracklist = MagicPlaylister.make_playlist(wildness, top_artist_tracks, top_tracks, top_genre_top_tracks, top_genre_single_listens, top_genre_wildcard, genre_wildcard)
+    except ValueError as e:
+        return {"error": "error creating playlist: " + str(e)}, 500
+
+    inserted_tracks = app.db_writer.insert_tracks_into_playlist(playlist_id, tracklist)
+
+    return jsonify({
+        "playlist_id": playlist_id,
+        "name": name,
+        "date": date,
+        "tracks_inserted": inserted_tracks,
+        "status": "created"
+    }), 201
 
 @app.route("/playlist/add/empty", methods=["POST"])
 def add_empty_playlist():
@@ -127,7 +147,7 @@ def add_empty_playlist():
     name = month + " " + year
     date = "01 " + name
     date_normal = datetime.strptime(date, "%d %B %y")
-    date = date_normal.strftime("%d.%m.%Y")
+    date = date_normal.strftime("%Y-%m-%d")
 
     if name_overwrite:
         name = name_overwrite
@@ -161,7 +181,8 @@ def delete_playlist(playlist_id):
     if playlist["navidrome_id"]:
         SubsonicClient.delete_playlist(playlist["navidrome_id"])
 
-    app.db_writer.delete_playlist(playlist_id)
+    deleted = app.db_writer.delete_playlist(playlist_id)
+    return jsonify({"playlist_id": playlist_id, "deleted": bool(deleted), "status": "deleted"}), 200
 
 @app.route("/playlist/<playlist_id>", methods=["UPDATE"])
 def update_playlist(playlist_id):
@@ -186,7 +207,8 @@ def get_playlist_tracks(playlist_id):
 
 @app.route("/playlist/tracks/<playlist_id>/<track_id>", methods=["DELETE"])
 def delete_track_from_playlist(playlist_id, track_id):
-    app.db_writer.delete_track_from_playlist(playlist_id, track_id)
+    deleted = app.db_writer.delete_track_from_playlist(playlist_id, track_id)
+    return jsonify({"playlist_id": playlist_id, "track_id": track_id, "deleted": bool(deleted), "status": "deleted"}), 200
 
 @app.route("/playlist/tracks/<playlist_id>/add", methods=["POST"])
 def add_tracks_to_playlist(playlist_id):
