@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import datetime, timezone
 from dataclasses import dataclass
 
 import psycopg2
@@ -69,11 +70,13 @@ class DatabaseWriter:
     def insert_navidrome_ids(self, mapping):
         try:
             with self.conn.cursor() as cur:
+
+                # Temp Mapping Tabelle
                 cur.execute("""
                     CREATE TEMP TABLE tmp_mapping (
                         mbid UUID,
                         navidrome_id TEXT
-                    )
+                    ) ON COMMIT DROP
                 """)
 
                 cur.executemany("""
@@ -88,19 +91,39 @@ class DatabaseWriter:
                     WHERE t.mbid = m.mbid
                 """)
 
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS unmatched_navidrome_tracks (
+                        mbid UUID PRIMARY KEY,
+                        navidrome_id TEXT,
+                        detected_at TIMESTAMP DEFAULT NOW()
+                    )
+                """)
+
+                cur.execute("TRUNCATE unmatched_navidrome_tracks")
+
+                cur.execute("""
+                    INSERT INTO unmatched_navidrome_tracks (mbid, navidrome_id)
+                    SELECT m.mbid, m.navidrome_id
+                    FROM tmp_mapping m
+                    LEFT JOIN tracks t ON t.mbid = m.mbid
+                    WHERE t.mbid IS NULL
+                """)
+
             self.conn.commit()
+
         except psycopg2.Error as e:
             log.error("Error inserting navidrome IDs", error=str(e), exc_info=True)
             self.conn.rollback()
 
     def update_playlist_navidrome_id(self, playlist_id, navidrome_id):
+        date = datetime.now(timezone.utc)
         try:
             with self.conn.cursor() as cur:
                 cur.execute("""
                     UPDATE playlists
-                    SET navidrome_id = %s
+                    SET navidrome_id = %s, last_synced = %s
                     WHERE id = %s
-                """, (navidrome_id, playlist_id,))
+                """, (navidrome_id, date, playlist_id,))
             self.conn.commit()
         except psycopg2.Error as e:
             log.error("Error inserting playlist navidrome ID", error=str(e), exc_info=True, playlist=playlist_id)
@@ -155,14 +178,15 @@ class DatabaseWriter:
             self.conn.rollback()
 
     def update_playlist_name(self, playlist_id, name):
+        date = datetime.now(timezone.utc)
         try:
             with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
                     UPDATE playlists
-                    SET name = %s
+                    SET name = %s, last_changed = %s
                     WHERE id = %s
                 """, 
-                (name, playlist_id,))
+                (name, date, playlist_id,))
             self.conn.commit()
             log.debug("Updated playlist", playlist=playlist_id)
         except psycopg2.Error as e:
@@ -170,6 +194,7 @@ class DatabaseWriter:
             self.conn.rollback()
 
     def insert_tracks_into_playlist(self, playlist_id: int, tracks):
+        date = datetime.now(timezone.utc)
         try:
             with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
@@ -181,6 +206,13 @@ class DatabaseWriter:
                     "playlist_id": playlist_id,
                     "tracks": tracks,
                 })
+
+                cur.execute("""
+                    UPDATE playlists
+                    last_changed = %s
+                    WHERE id = %s
+                """, 
+                (date, playlist_id,))
             self.conn.commit()
             log.debug("Added tracks to playlist", playlist=playlist_id, tracks=len(tracks))
             return len(tracks)
@@ -190,6 +222,7 @@ class DatabaseWriter:
             return None
 
     def delete_track_from_playlist(self, playlist_id, track_id):
+        date = datetime.now(timezone.utc)
         try:
             with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
@@ -197,6 +230,13 @@ class DatabaseWriter:
                     WHERE playlist_id = %s
                         AND track_id = %s
                 """, (playlist_id, track_id,))
+
+                cur.execute("""
+                    UPDATE playlists
+                    last_changed = %s
+                    WHERE id = %s
+                """, 
+                (date, playlist_id,))
             self.conn.commit()
             log.debug("Removed track from playlist", playlist=playlist_id, track=track_id)
         except psycopg2.Error as e:
@@ -215,6 +255,30 @@ class DatabaseReader:
                 cur.execute("""
                     SELECT id, name, navidrome_id
                     FROM playlists
+                    ORDER BY month
+                """)
+                rows = cur.fetchall()
+        except psycopg2.Error as e:
+            log.error("Error reading playlists from Database", error=str(e), exc_info=True)
+            self.conn.rollback()
+
+        playlists = []
+        for row in rows:
+            playlists.append({
+                "playlist_id": row[0],
+                "name": row[1],
+                "navidrome_id": row[2]
+            })
+        return playlists
+    
+    def load_changed_playlists(self):
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute("""
+                    SELECT id, name, navidrome_id
+                    FROM playlists
+                    WHERE last_synced IS NULL
+                        OR last_synced < last_changed
                     ORDER BY month
                 """)
                 rows = cur.fetchall()

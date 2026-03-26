@@ -51,7 +51,7 @@ def sync_playlists():
     mapping = SubsonicClient().build_mbid_mapping()
     app.db_writer.insert_navidrome_ids(mapping)
 
-    playlists = app.db_reader.load_playlists()
+    playlists = app.db_reader.load_changed_playlists()
     synced = []
     skipped = []
 
@@ -237,9 +237,17 @@ def add_tracks_to_playlist(playlist_id):
         "tracks": new_tracks
     })
 
-#@app.route("/artists/all", methods=["GET"])
-#@app.route("/albums/<artist_id>/all", methods=["GET"])
-#@app.route("/tracks/<album_id>/all", methods=["GET"])
+@app.route("/artist/all", methods=["GET"])
+def get_all_artists():
+    artists = app.db_reader.get_all_artists()
+
+    return jsonify({
+        "artists": artists,
+        "count": len(artists)
+    })
+
+#@app.route("/album/<artist_id>/all", methods=["GET"])
+#@app.route("/track/<album_id>/all", methods=["GET"])
 
 def create_app():
     try:
