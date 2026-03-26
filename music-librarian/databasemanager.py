@@ -315,7 +315,8 @@ class DatabaseReader:
                 """, {
                     "date": date,
                 })
-                return cur.fetchall()
+                rows = cur.fetchall()
+                return [row[0] for row in rows]
         except psycopg2.Error as e:
             log.error("Error reading top artist tracks from Database", error=str(e), exc_info=True, date=date)
             self.conn.rollback()
@@ -340,7 +341,8 @@ class DatabaseReader:
                 """, {
                     "date": date,
                 })
-                return cur.fetchall()
+                rows = cur.fetchall()
+                return [row[0] for row in rows]
         except psycopg2.Error as e:
             log.error("Error reading top tracks from Database", error=str(e), exc_info=True, date=date)
             self.conn.rollback()
@@ -383,7 +385,8 @@ class DatabaseReader:
                 """, {
                     "date": date,
                 })
-                return cur.fetchall()
+                rows = cur.fetchall()
+                return [row[0] for row in rows]
         except psycopg2.Error as e:
             log.error("Error reading top genre tracks from Database", error=str(e), exc_info=True, date=date)
             self.conn.rollback()
@@ -422,7 +425,8 @@ class DatabaseReader:
                 """, {
                     "date": date,
                 })
-                return cur.fetchall()
+                rows = cur.fetchall()
+                return [row[0] for row in rows]
         except psycopg2.Error as e:
             log.error("Error reading single listen tracks from Database", error=str(e), exc_info=True, date=date)
             self.conn.rollback()
@@ -462,7 +466,8 @@ class DatabaseReader:
                 """, {
                     "date": date,
                 })
-                return cur.fetchall()
+                rows = cur.fetchall()
+                return [row[0] for row in rows]
         except psycopg2.Error as e:
             log.error("Error reading top genre wildcard from Database", error=str(e), exc_info=True, date=date)
             self.conn.rollback()
@@ -499,7 +504,8 @@ class DatabaseReader:
                 """, {
                     "date": date,
                 })
-                return cur.fetchall()
+                rows = cur.fetchall()
+                return [row[0] for row in rows]
         except psycopg2.Error as e:
             log.error("Error reading wildcard from Database", error=str(e), exc_info=True, date=date)
             self.conn.rollback()
