@@ -52,6 +52,7 @@ class SubsonicClient:
 
         mapping = {}
         unmapped = []
+        duplicates = 0
 
         artists = self._get_artists()
 
@@ -76,6 +77,8 @@ class SubsonicClient:
             mbid = track.get("musicBrainzId")
             sid = track.get("id")
 
+            if mapping[mbid]:
+                duplicates+=1
             if mbid and sid:
                 mapping[mbid] = sid
             if not mbid:
@@ -89,6 +92,7 @@ class SubsonicClient:
                 })
 
         log.debug(f"Mapped {len(mapping)} songs")
+        log.debug(f"Navidrome contains {duplicates} duplicate songs")
         log.debug(f"{len(unmapped)} songs could not be mapped", unmapped=unmapped)
         return mapping
 
