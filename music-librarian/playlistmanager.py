@@ -316,6 +316,7 @@ class MagicPlaylister:
             for _ in range(missing):
                 counts[random.choice(keys)] += 1
 
+        new_tracks = []
         if len(playlist) < length:
             pool = list(set(
                 top_artist_tracks +
