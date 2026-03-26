@@ -76,7 +76,8 @@ class SubsonicClient:
             if mbid and sid:
                 mapping[mbid] = sid
 
-        print(f"Mapped {len(mapping)} songs")
+        log.debug(f"Mapped {len(mapping)} songs")
+        return mapping
 
     def _get_artists(self) -> Optional[List[any]]:
         data = self._call_api("getArtists")      
