@@ -190,7 +190,7 @@ class DatabaseWriter:
 
                 cur.execute("""
                     UPDATE playlists
-                    last_changed = %s
+                    SET last_changed = %s
                     WHERE id = %s
                 """, 
                 (date, playlist_id,))
@@ -214,7 +214,7 @@ class DatabaseWriter:
 
                 cur.execute("""
                     UPDATE playlists
-                    last_changed = %s
+                    SET last_changed = %s
                     WHERE id = %s
                 """, 
                 (date, playlist_id,))
@@ -229,6 +229,72 @@ class DatabaseReader:
 
     def __init__(self, conn):
         self.conn = conn
+
+    def get_all_artists(self):
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute("""
+                    SELECT id, name
+                    FROM artists
+                """)
+                rows = cur.fetchall()
+        except psycopg2.Error as e:
+            log.error("Error reading artists from Database", error=str(e), exc_info=True)
+            self.conn.rollback()
+
+        artists = []
+        for row in rows:
+            artists.append({
+                "artist_id": row[0],
+                "name": row[1]
+            })
+        return artists
+
+    def get_artist_albums(self, artist_id):
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute("""
+                    SELECT al.id, al.name
+                    FROM albums al
+                    LEFT JOIN artist_albums aal ON aal.album_id = al.id
+                    LEFT JOIN artists a ON a.id = aal.artist_id
+                    WHERE a.id = %s
+                """, (artist_id,))
+                rows = cur.fetchall()
+        except psycopg2.Error as e:
+            log.error("Error reading albums from Database", error=str(e), exc_info=True, artist=artist_id)
+            self.conn.rollback()
+
+        albums = []
+        for row in rows:
+            albums.append({
+                "album_id": row[0],
+                "name": row[1]
+            })
+        return albums
+
+    def get_album_tracks(self, album_id):
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute("""
+                    SELECT t.id, t.title
+                    FROM tracks t
+                    LEFT JOIN album_tracks atr ON atr.track_id = t.id
+                    LEFT JOIN albums al ON al.id = atr.album_id
+                    WHERE al.id = %s
+                """, (album_id,))
+                rows = cur.fetchall()
+        except psycopg2.Error as e:
+            log.error("Error reading tracks from Database", error=str(e), exc_info=True, album=album_id)
+            self.conn.rollback()
+
+        tracks = []
+        for row in rows:
+            tracks.append({
+                "track_id": row[0],
+                "name": row[1]
+            })
+        return tracks
 
     def load_playlists(self):
         try:

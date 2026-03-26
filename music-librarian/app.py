@@ -246,8 +246,23 @@ def get_all_artists():
         "count": len(artists)
     })
 
-#@app.route("/album/<artist_id>/all", methods=["GET"])
-#@app.route("/track/<album_id>/all", methods=["GET"])
+@app.route("/album/<artist_id>/all", methods=["GET"])
+def get_artist_albums(artist_id):
+    albums = app.db_reader.get_artist_albums(artist_id)
+
+    return jsonify({
+        "albums": albums,
+        "count": len(albums)
+    })
+
+@app.route("/track/<album_id>/all", methods=["GET"])
+def get_album_tracks(album_id):
+    tracks = app.db_reader.get_album_tracks(album_id)
+
+    return jsonify({
+        "tracks": tracks,
+        "count": len(tracks)
+    })
 
 def create_app():
     try:
