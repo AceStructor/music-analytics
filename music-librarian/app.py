@@ -93,9 +93,20 @@ def add_playlist():
     year = request.json.get("year")
     auto = request.json.get("auto")
     wildness = request.json.get("wildness")
+    interval = request.json.get("interval")
+    length = request.json.get("length")
 
     if not month or not year:
         return {"error": "json body incomplete, month or year missing"}, 400
+    
+    if not wildness:
+        wildness = 0
+    
+    if not interval:
+        interval = "1 month"
+
+    if not length:
+        length = 50
     
     name = month + " " + year
     date = "01 " + name
@@ -113,15 +124,15 @@ def add_playlist():
     if not playlist_id:
         return {"error": "error creating empty playlist"}, 500
 
-    top_artist_tracks = app.db_reader.get_top_artist_tracks(date)
-    top_tracks = app.db_reader.get_top_tracks(date)
-    top_genre_top_tracks = app.db_reader.get_top_genre_top_tracks(date)
-    top_genre_single_listens = app.db_reader.get_top_genre_single_listens(date)
-    top_genre_wildcard = app.db_reader.get_top_genre_wildcard(date)
-    genre_wildcard = app.db_reader.get_genre_wildcard(date)
+    top_artist_tracks = app.db_reader.get_top_artist_tracks(date, interval)
+    top_tracks = app.db_reader.get_top_tracks(date, interval)
+    top_genre_top_tracks = app.db_reader.get_top_genre_top_tracks(date, interval)
+    top_genre_single_listens = app.db_reader.get_top_genre_single_listens(date, interval)
+    top_genre_wildcard = app.db_reader.get_top_genre_wildcard(date, interval)
+    genre_wildcard = app.db_reader.get_genre_wildcard(date, interval)
 
     try:
-        tracklist = MagicPlaylister().make_playlist(wildness, top_artist_tracks, top_tracks, top_genre_top_tracks, top_genre_single_listens, top_genre_wildcard, genre_wildcard)
+        tracklist = MagicPlaylister().make_playlist(wildness, length, top_artist_tracks, top_tracks, top_genre_top_tracks, top_genre_single_listens, top_genre_wildcard, genre_wildcard)
     except ValueError as e:
         return {"error": "error creating playlist: " + str(e)}, 500
 

@@ -280,7 +280,7 @@ class DatabaseReader:
         return tracks
 
 
-    def get_top_artist_tracks(self, date):
+    def get_top_artist_tracks(self, date, interval):
         try:
             with self.conn.cursor() as cur:
                 cur.execute("""
@@ -291,7 +291,7 @@ class DatabaseReader:
                         LEFT JOIN tracks t ON t.id = art.track_id
                         LEFT JOIN track_plays tp ON t.id = tp.track_id
                         WHERE played_at >= TIMESTAMP %(date)s
-                            AND played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND played_at < TIMESTAMP %(date)s + interval %(interval)s
                             AND skipped = false
                         GROUP BY a.id
                         ORDER BY play_count DESC
@@ -306,7 +306,7 @@ class DatabaseReader:
                         LEFT JOIN artists a ON a.id = art.artist_id
                         JOIN track_plays tp ON tp.track_id = t.id
                         WHERE played_at >= TIMESTAMP %(date)s
-                            AND played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND played_at < TIMESTAMP %(date)s + interval %(interval)s
                             AND skipped = false
                             AND art.artist_id IN (SELECT artist_id FROM top_artists)
                         GROUP BY t.id, t.title, a.id, a.name
@@ -317,6 +317,7 @@ class DatabaseReader:
                     WHERE rank <= 3
                 """, {
                     "date": date,
+                    "interval": interval,
                 })
                 rows = cur.fetchall()
                 return [row[0] for row in rows]
@@ -324,7 +325,7 @@ class DatabaseReader:
             log.error("Error reading top artist tracks from Database", error=str(e), exc_info=True, date=date)
             self.conn.rollback()
 
-    def get_top_tracks(self, date):
+    def get_top_tracks(self, date, interval):
         try:
             with self.conn.cursor() as cur:
                 cur.execute("""
@@ -333,7 +334,7 @@ class DatabaseReader:
                         FROM tracks t
                         JOIN track_plays tp ON tp.track_id = t.id
                         WHERE played_at >= TIMESTAMP %(date)s
-                            AND played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND played_at < TIMESTAMP %(date)s + interval %(interval)s
                             AND skipped = false
                         GROUP BY t.id, t.title
                         ORDER BY play_count DESC
@@ -344,6 +345,7 @@ class DatabaseReader:
                     FROM top_tracks
                 """, {
                     "date": date,
+                    "interval": interval,
                 })
                 rows = cur.fetchall()
                 return [row[0] for row in rows]
@@ -351,7 +353,7 @@ class DatabaseReader:
             log.error("Error reading top tracks from Database", error=str(e), exc_info=True, date=date)
             self.conn.rollback()
 
-    def get_top_genre_top_tracks(self, date):
+    def get_top_genre_top_tracks(self, date, interval):
         try:
             with self.conn.cursor() as cur:
                 cur.execute("""
@@ -359,7 +361,7 @@ class DatabaseReader:
                         SELECT tp.track_id
                         FROM track_plays tp
                         WHERE tp.played_at >= TIMESTAMP %(date)s
-                            AND tp.played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND tp.played_at < TIMESTAMP %(date)s + interval %(interval)s
                             AND skipped = false
                     ),
 
@@ -389,6 +391,7 @@ class DatabaseReader:
                     LIMIT 10
                 """, {
                     "date": date,
+                    "interval": interval,
                 })
                 rows = cur.fetchall()
                 return [row[0] for row in rows]
@@ -396,7 +399,7 @@ class DatabaseReader:
             log.error("Error reading top genre tracks from Database", error=str(e), exc_info=True, date=date)
             self.conn.rollback()
 
-    def get_top_genre_single_listens(self, date):
+    def get_top_genre_single_listens(self, date, interval):
         try:
             with self.conn.cursor() as cur:
                 cur.execute("""
@@ -404,7 +407,7 @@ class DatabaseReader:
                         SELECT tp.track_id, COUNT(*) AS plays
                         FROM track_plays tp
                         WHERE tp.played_at >= TIMESTAMP %(date)s
-                            AND tp.played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND tp.played_at < TIMESTAMP %(date)s + interval %(interval)s
                             AND skipped = false
                         GROUP BY tp.track_id
                     ),
@@ -415,7 +418,7 @@ class DatabaseReader:
                         JOIN artist_tracks at ON at.track_id = tp.track_id
                         JOIN artist_genres ag ON ag.artist_id = at.artist_id
                         WHERE tp.played_at >= TIMESTAMP %(date)s
-                            AND tp.played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND tp.played_at < TIMESTAMP %(date)s + interval %(interval)s
                             AND skipped = false
                         GROUP BY ag.genre_id
                         ORDER BY play_count DESC
@@ -431,6 +434,7 @@ class DatabaseReader:
                     WHERE mp.plays = 1
                 """, {
                     "date": date,
+                    "interval": interval,
                 })
                 rows = cur.fetchall()
                 return [row[0] for row in rows]
@@ -438,7 +442,7 @@ class DatabaseReader:
             log.error("Error reading single listen tracks from Database", error=str(e), exc_info=True, date=date)
             self.conn.rollback()
 
-    def get_top_genre_wildcard(self, date):
+    def get_top_genre_wildcard(self, date, interval):
         try:
             with self.conn.cursor() as cur:
                 cur.execute("""
@@ -446,7 +450,7 @@ class DatabaseReader:
                         SELECT DISTINCT track_id
                         FROM track_plays
                         WHERE played_at >= TIMESTAMP %(date)s
-                            AND played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND played_at < TIMESTAMP %(date)s + interval %(interval)s
                             AND skipped = false
                     ),
 
@@ -456,7 +460,7 @@ class DatabaseReader:
                         JOIN artist_tracks at ON at.track_id = tp.track_id
                         JOIN artist_genres ag ON ag.artist_id = at.artist_id
                         WHERE tp.played_at >= TIMESTAMP %(date)s
-                            AND tp.played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND tp.played_at < TIMESTAMP %(date)s + interval %(interval)s
                             AND skipped = false
                         GROUP BY ag.genre_id
                         ORDER BY COUNT(*) DESC
@@ -474,6 +478,7 @@ class DatabaseReader:
                     LIMIT 20
                 """, {
                     "date": date,
+                    "interval": interval,
                 })
                 rows = cur.fetchall()
                 return [row[0] for row in rows]
@@ -481,7 +486,7 @@ class DatabaseReader:
             log.error("Error reading top genre wildcard from Database", error=str(e), exc_info=True, date=date)
             self.conn.rollback()
 
-    def get_genre_wildcard(self, date):
+    def get_genre_wildcard(self, date, interval):
         try:
             with self.conn.cursor() as cur:
                 cur.execute("""
@@ -489,7 +494,7 @@ class DatabaseReader:
                         SELECT DISTINCT track_id
                         FROM track_plays
                         WHERE played_at >= TIMESTAMP %(date)s
-                            AND played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND played_at < TIMESTAMP %(date)s + interval %(interval)s
                             AND skipped = false
                     ),
 
@@ -499,7 +504,7 @@ class DatabaseReader:
                         JOIN artist_tracks at ON at.track_id = tp.track_id
                         JOIN artist_genres ag ON ag.artist_id = at.artist_id
                         WHERE tp.played_at >= TIMESTAMP %(date)s
-                            AND tp.played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND tp.played_at < TIMESTAMP %(date)s + interval %(interval)s
                             AND skipped = false
                     )
 
@@ -514,6 +519,7 @@ class DatabaseReader:
                     LIMIT 30
                 """, {
                     "date": date,
+                    "interval": interval,
                 })
                 rows = cur.fetchall()
                 return [row[0] for row in rows]
