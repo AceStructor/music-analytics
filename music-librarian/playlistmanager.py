@@ -69,6 +69,8 @@ class SubsonicClient:
             album_tracks = self._get_album_tracks(album_id)
             tracks += album_tracks
 
+        log.debug("Collected tracks from Navidrome", tracks=len(tracks))
+
         for track in tracks:
             mbid = track.get("musicBrainzId")
             sid = track.get("id")
