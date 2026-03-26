@@ -71,7 +71,7 @@ class DatabaseWriter:
             with self.conn.cursor() as cur:
                 cur.execute("""
                     CREATE TEMP TABLE tmp_mapping (
-                        mbid TEXT,
+                        mbid UUID,
                         navidrome_id TEXT
                     )
                 """)
