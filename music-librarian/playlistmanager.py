@@ -59,16 +59,14 @@ class SubsonicClient:
             for artist in group.get("artist", []):
                 artist_id = artist["id"]
 
-                artist_data = self._get_artist_albums(artist_id)
-                artist_albums = artist_data["artist"].get("album", [])
+                artist_albums = self._get_artist_albums(artist_id)
                 albums.append(artist_albums)
 
         tracks = []
         for album in albums:
             album_id = album["id"]
 
-            album_data = self._get_album_tracks(album_id)
-            album_tracks = album_data["album"].get("song", [])
+            album_tracks = self._get_album_tracks(album_id)
             tracks.append(album_tracks)
 
         for track in tracks:
