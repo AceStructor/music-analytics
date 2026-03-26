@@ -292,6 +292,7 @@ class DatabaseReader:
                         LEFT JOIN track_plays tp ON t.id = tp.track_id
                         WHERE played_at >= TIMESTAMP %(date)s
                             AND played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND skipped = false
                         GROUP BY a.id
                         ORDER BY play_count DESC
                         LIMIT 20
@@ -306,6 +307,7 @@ class DatabaseReader:
                         JOIN track_plays tp ON tp.track_id = t.id
                         WHERE played_at >= TIMESTAMP %(date)s
                             AND played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND skipped = false
                             AND art.artist_id IN (SELECT artist_id FROM top_artists)
                         GROUP BY t.id, t.title, a.id, a.name
                     )
@@ -332,6 +334,7 @@ class DatabaseReader:
                         JOIN track_plays tp ON tp.track_id = t.id
                         WHERE played_at >= TIMESTAMP %(date)s
                             AND played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND skipped = false
                         GROUP BY t.id, t.title
                         ORDER BY play_count DESC
                         LIMIT 30
@@ -356,7 +359,8 @@ class DatabaseReader:
                         SELECT tp.track_id
                         FROM track_plays tp
                         WHERE tp.played_at >= TIMESTAMP %(date)s
-                        AND tp.played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND tp.played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND skipped = false
                     ),
 
                     top_genre AS (
@@ -400,7 +404,8 @@ class DatabaseReader:
                         SELECT tp.track_id, COUNT(*) AS plays
                         FROM track_plays tp
                         WHERE tp.played_at >= TIMESTAMP %(date)s
-                        AND tp.played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND tp.played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND skipped = false
                         GROUP BY tp.track_id
                     ),
 
@@ -410,7 +415,8 @@ class DatabaseReader:
                         JOIN artist_tracks at ON at.track_id = tp.track_id
                         JOIN artist_genres ag ON ag.artist_id = at.artist_id
                         WHERE tp.played_at >= TIMESTAMP %(date)s
-                        AND tp.played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND tp.played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND skipped = false
                         GROUP BY ag.genre_id
                         ORDER BY play_count DESC
                         LIMIT 1
@@ -440,7 +446,8 @@ class DatabaseReader:
                         SELECT DISTINCT track_id
                         FROM track_plays
                         WHERE played_at >= TIMESTAMP %(date)s
-                        AND played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND skipped = false
                     ),
 
                     top_genre AS (
@@ -449,7 +456,8 @@ class DatabaseReader:
                         JOIN artist_tracks at ON at.track_id = tp.track_id
                         JOIN artist_genres ag ON ag.artist_id = at.artist_id
                         WHERE tp.played_at >= TIMESTAMP %(date)s
-                        AND tp.played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND tp.played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND skipped = false
                         GROUP BY ag.genre_id
                         ORDER BY COUNT(*) DESC
                         LIMIT 1
@@ -481,7 +489,8 @@ class DatabaseReader:
                         SELECT DISTINCT track_id
                         FROM track_plays
                         WHERE played_at >= TIMESTAMP %(date)s
-                        AND played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND skipped = false
                     ),
 
                     month_genres AS (
@@ -490,7 +499,8 @@ class DatabaseReader:
                         JOIN artist_tracks at ON at.track_id = tp.track_id
                         JOIN artist_genres ag ON ag.artist_id = at.artist_id
                         WHERE tp.played_at >= TIMESTAMP %(date)s
-                        AND tp.played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND tp.played_at < TIMESTAMP %(date)s + interval '1 month'
+                            AND skipped = false
                     )
 
                     SELECT t.id
