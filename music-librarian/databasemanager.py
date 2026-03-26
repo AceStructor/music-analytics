@@ -474,6 +474,7 @@ class DatabaseReader:
                     JOIN top_genre tg ON tg.genre_id = ag.genre_id
                     LEFT JOIN month_tracks mt ON mt.track_id = t.id
                     WHERE mt.track_id IS NULL
+                        AND t.navidrome_id IS NOT NULL
                     ORDER BY random()
                     LIMIT 20
                 """, {
@@ -515,6 +516,7 @@ class DatabaseReader:
                     JOIN month_genres mg ON mg.genre_id = ag.genre_id
                     LEFT JOIN month_tracks mt ON mt.track_id = t.id
                     WHERE mt.track_id IS NULL
+                        AND t.navidrome_id IS NOT NULL
                     ORDER BY random()
                     LIMIT 30
                 """, {
