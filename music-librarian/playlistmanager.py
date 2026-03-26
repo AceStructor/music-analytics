@@ -77,7 +77,7 @@ class SubsonicClient:
             mbid = track.get("musicBrainzId")
             sid = track.get("id")
 
-            if mapping[mbid]:
+            if mbid in mapping:
                 duplicates+=1
             if mbid and sid:
                 mapping[mbid] = sid
