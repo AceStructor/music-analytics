@@ -74,7 +74,7 @@ def sync_playlists():
             synced.append({"playlist_id": playlist["playlist_id"], "navidrome_id": new_id, "action": "created"})
         else:
             log.debug(" -> replacing playlist")
-            new_id = SubsonicClient().replace_playlist(playlist["navidrome_id"], song_navidrome_ids)
+            new_id = SubsonicClient().replace_playlist(playlist['name'], playlist["navidrome_id"], song_navidrome_ids)
             app.db_writer.update_playlist_navidrome_id(playlist["playlist_id"], new_id)
             synced.append({"playlist_id": playlist["playlist_id"], "navidrome_id": new_id, "action": "replaced"})
 
