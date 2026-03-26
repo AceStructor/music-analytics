@@ -79,10 +79,13 @@ class SubsonicClient:
             if mbid and sid:
                 mapping[mbid] = sid
             if not mbid:
+                title = track.get["title"]
+                album = track.get["album"]
+                artist = track.get["artist"]
                 unmapped.append({
-                    "title": track.get["title"],
-                    "album": track.get["album"],
-                    "artist": track.get["artist"]
+                    "title": title,
+                    "album": album,
+                    "artist": artist
                 })
 
         log.debug(f"Mapped {len(mapping)} songs")
