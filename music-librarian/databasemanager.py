@@ -254,12 +254,13 @@ class DatabaseReader:
         try:
             with self.conn.cursor() as cur:
                 cur.execute("""
-                    SELECT t.id, t.title, a.name, t.mbid, t.navidrome_id
+                    SELECT t.id, t.title, STRING_AGG(DISTINCT a.name, ' & ' ORDER BY a.name) AS artists, t.mbid, t.navidrome_id
                     FROM playlist_tracks pt
                     JOIN tracks t ON t.id = pt.track_id
-                    LEFT JOIN artist_tracks art ON art.track_id = t.id
-                    LEFT JOIN artists a ON a.id = art.artist_id
+                    RIGHT JOIN artist_tracks art ON art.track_id = t.id
+                    RIGHT JOIN artists a ON a.id = art.artist_id
                     WHERE pt.playlist_id = %s
+                    GROUP BY t.id, t.title, t.mbid, t.navidrome_id
                 """, (playlist_id,))
                 rows = cur.fetchall()
         except psycopg2.Error as e:
