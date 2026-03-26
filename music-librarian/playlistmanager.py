@@ -101,13 +101,13 @@ class SubsonicClient:
 
         if data is None:
             log.warning("No Artists data was found")
-            return None
+            return []
         
         try:
             artists = data["artists"]["index"]
         except (KeyError, TypeError) as e:
             log.error("Missing expected fields in getArtists data", error=str(e), data=data)
-            return None
+            return []
         
         return artists
     
@@ -120,13 +120,13 @@ class SubsonicClient:
 
         if data is None:
             log.warning("No Album data was found")
-            return None
+            return []
 
         try:
             albums = data["artist"].get("album", [])
         except (KeyError, TypeError) as e:
             log.error("Missing expected fields in getArtist data", error=str(e), data=data)
-            return None
+            return []
         
         return albums
     
@@ -139,13 +139,13 @@ class SubsonicClient:
         
         if data is None:
             log.warning("No Song data was found")
-            return None
+            return []
         
         try:
             tracks = data["album"].get("song", [])
         except (KeyError, TypeError) as e:
             log.error("Missing expected fields in getAlbum data", error=str(e), data=data)
-            return None
+            return []
         
         return tracks
     
@@ -154,7 +154,18 @@ class SubsonicClient:
             "name": name,
             "songId": song_ids 
         })
-        return resp["playlist"]["id"]
+
+        if resp is None:
+            log.warning("Failure in playlist generation")
+            return None
+        
+        try:
+            playlist_id = resp["playlist"]["id"]
+        except (KeyError, TypeError) as e:
+            log.error("Missing expected fields in createPlaylist data", error=str(e), data=resp)
+            return None
+        
+        return playlist_id
 
     def replace_playlist(self, name, navidrome_id, song_ids):
         self.delete_playlist(navidrome_id)
@@ -263,7 +274,6 @@ class MagicPlaylister:
     def fill_playlist(
         self,
         playlist,
-        wildness,
         length,
         top_artist_tracks,
         top_tracks,
@@ -272,50 +282,6 @@ class MagicPlaylister:
         top_genre_wildcard,
         genre_wildcard
     ):
-        if wildness == 0:
-            weights = {
-                "artist": 0.5,
-                "tracks": 0.5,
-            }
-
-        elif wildness == 1:
-            weights = {
-                "artist": 0.4,
-                "tracks": 0.3,
-                "genre_top": 0.2,
-                "single": 0.1,
-            }
-
-        elif wildness == 2:
-            weights = {
-                "artist": 0.3,
-                "tracks": 0.2,
-                "genre_top": 0.2,
-                "single": 0.15,
-                "genre_wild": 0.15,
-            }
-
-        elif wildness == 3:
-            weights = {
-                "artist": 0.2,
-                "tracks": 0.1,
-                "genre_top": 0.2,
-                "single": 0.15,
-                "genre_wild": 0.2,
-                "wildcard": 0.15,
-            }
-
-        else:
-            raise ValueError("wildness must be 0-3")
-        
-        counts = {k: int(v * length) for k, v in weights.items()}
-
-        missing = length - sum(counts.values())
-        if missing > 0:
-            keys = list(counts.keys())
-            for _ in range(missing):
-                counts[random.choice(keys)] += 1
-
         new_tracks = []
         if len(playlist) < length:
             pool = list(set(

@@ -91,22 +91,13 @@ def add_playlist():
     name_overwrite = request.json.get("name")
     month = request.json.get("month")
     year = request.json.get("year")
-    auto = request.json.get("auto")
-    wildness = request.json.get("wildness")
-    interval = request.json.get("interval")
-    length = request.json.get("length")
+    auto = request.json.get("auto", True)
+    wildness = request.json.get("wildness", 0)
+    interval = request.json.get("interval", "1 month")
+    length = request.json.get("length", 50)
 
     if not month or not year:
         return {"error": "json body incomplete, month or year missing"}, 400
-    
-    if not wildness:
-        wildness = 0
-    
-    if not interval:
-        interval = "1 month"
-
-    if not length:
-        length = 50
     
     name = month + " " + year
     date = "01 " + name
@@ -209,9 +200,8 @@ def update_playlist(playlist_id):
 
 @app.route("/playlist/<playlist_id>/fill", methods=["POST"])
 def fill_playlist(playlist_id):
-    length = request.json.get("length")
+    length = request.json.get("length", 50)
     interval = request.json.get("interval", "1 month")
-    wildness = request.json.get("wildness", 1)
 
     playlist = app.db_reader.search_playlist(playlist_id)
 
@@ -223,10 +213,10 @@ def fill_playlist(playlist_id):
     genre_wildcard = app.db_reader.get_genre_wildcard(playlist["month"], interval)
 
     tracks = app.db_reader.load_playlist_tracks(playlist_id)
-    playlist = [track["id"] for track in tracks]
+    track_ids = [track["id"] for track in tracks]
 
     try:
-        tracklist = MagicPlaylister().fill_playlist(playlist, wildness, length, top_artist_tracks, top_tracks, top_genre_top_tracks, top_genre_single_listens, top_genre_wildcard, genre_wildcard)
+        tracklist = MagicPlaylister().fill_playlist(track_ids, length, top_artist_tracks, top_tracks, top_genre_top_tracks, top_genre_single_listens, top_genre_wildcard, genre_wildcard)
     except ValueError as e:
         return {"error": "error filling playlist: " + str(e)}, 500
 
