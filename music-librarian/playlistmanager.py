@@ -60,14 +60,14 @@ class SubsonicClient:
                 artist_id = artist["id"]
 
                 artist_albums = self._get_artist_albums(artist_id)
-                albums.append(artist_albums)
+                albums += artist_albums
 
         tracks = []
         for album in albums:
             album_id = album["id"]
 
             album_tracks = self._get_album_tracks(album_id)
-            tracks.append(album_tracks)
+            tracks += album_tracks
 
         for track in tracks:
             mbid = track.get("musicBrainzId")
