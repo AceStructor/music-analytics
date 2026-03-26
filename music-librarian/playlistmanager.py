@@ -197,16 +197,11 @@ class MagicPlaylister:
 
         else:
             raise ValueError("wildness must be 0-3")
+        
+        log.debug("Before deduping", tracks=base)
+        deduped = list(dict.fromkeys(base))
+        log.debug("After deduping", tracks=deduped)
 
-        # 🔥 Duplikate entfernen (Reihenfolge behalten)
-        seen = set()
-        deduped = []
-        for t in base:
-            if t not in seen:
-                seen.add(t)
-                deduped.append(t)
-
-        # 🔀 Durchmischen (wichtig!)
         random.shuffle(deduped)
 
         return deduped
