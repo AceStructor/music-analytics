@@ -346,7 +346,7 @@ class DatabaseReader:
         try:
             with self.conn.cursor() as cur:
                 cur.execute("""
-                    SELECT id, name, navidrome_id
+                    SELECT id, name, navidrome_id, month
                     FROM playlists
                     WHERE id = %s
                 """, (playlist_id,))
@@ -358,7 +358,8 @@ class DatabaseReader:
         return {
             "playlist_id": row[0],
             "name": row[1],
-            "navidrome_id": row[2]
+            "navidrome_id": row[2],
+            "month": row[3]
         }
 
     def load_playlist_tracks(self, playlist_id):

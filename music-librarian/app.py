@@ -207,7 +207,40 @@ def update_playlist(playlist_id):
         "playlist": playlist
     })
 
-@app.route("/playlist/tracks/<playlist_id>", methods=["GET"])
+@app.route("/playlist/<playlist_id>/fill", methods=["POST"])
+def fill_playlist(playlist_id):
+    length = request.json.get("length")
+    interval = request.json.get("interval", "1 month")
+    wildness = request.json.get("wildness", 1)
+
+    playlist = app.db_reader.search_playlist(playlist_id)
+
+    top_artist_tracks = app.db_reader.get_top_artist_tracks(playlist["month"], interval)
+    top_tracks = app.db_reader.get_top_tracks(playlist["month"], interval)
+    top_genre_top_tracks = app.db_reader.get_top_genre_top_tracks(playlist["month"], interval)
+    top_genre_single_listens = app.db_reader.get_top_genre_single_listens(playlist["month"], interval)
+    top_genre_wildcard = app.db_reader.get_top_genre_wildcard(playlist["month"], interval)
+    genre_wildcard = app.db_reader.get_genre_wildcard(playlist["month"], interval)
+
+    tracks = app.db_reader.load_playlist_tracks(playlist_id)
+    playlist = [track["id"] for track in tracks]
+
+    try:
+        tracklist = MagicPlaylister().fill_playlist(playlist, wildness, length, top_artist_tracks, top_tracks, top_genre_top_tracks, top_genre_single_listens, top_genre_wildcard, genre_wildcard)
+    except ValueError as e:
+        return {"error": "error filling playlist: " + str(e)}, 500
+
+    inserted_tracks = app.db_writer.insert_tracks_into_playlist(playlist_id, tracklist)
+
+    return jsonify({
+        "playlist_id": playlist_id,
+        "name": playlist["name"],
+        "date": playlist["month"],
+        "tracks_inserted": inserted_tracks,
+        "status": "updated"
+    }), 201
+
+@app.route("/playlist/<playlist_id>/tracks", methods=["GET"])
 def get_playlist_tracks(playlist_id):
     tracks = app.db_reader.load_playlist_tracks(playlist_id)
 
@@ -216,12 +249,12 @@ def get_playlist_tracks(playlist_id):
         "tracks": tracks
     })
 
-@app.route("/playlist/tracks/<playlist_id>/<track_id>", methods=["DELETE"])
+@app.route("/playlist/<playlist_id>/tracks/<track_id>", methods=["DELETE"])
 def delete_track_from_playlist(playlist_id, track_id):
     deleted = app.db_writer.delete_track_from_playlist(playlist_id, track_id)
     return jsonify({"playlist_id": playlist_id, "track_id": track_id, "deleted": bool(deleted), "status": "deleted"}), 200
 
-@app.route("/playlist/tracks/<playlist_id>/add", methods=["POST"])
+@app.route("/playlist/<playlist_id>/tracks/add", methods=["POST"])
 def add_tracks_to_playlist(playlist_id):
     tracks = request.json.get("tracks")
 

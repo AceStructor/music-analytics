@@ -183,7 +183,6 @@ class MagicPlaylister:
         top_genre_wildcard,
         genre_wildcard
     ):
-        # 🎚️ Gewichtungen pro Wildness-Level
         if wildness == 0:
             weights = {
                 "artist": 0.5,
@@ -260,3 +259,73 @@ class MagicPlaylister:
         random.shuffle(deduped)
 
         return deduped
+    
+    def fill_playlist(
+        self,
+        playlist,
+        wildness,
+        length,
+        top_artist_tracks,
+        top_tracks,
+        top_genre_top_tracks,
+        top_genre_single_listens,
+        top_genre_wildcard,
+        genre_wildcard
+    ):
+        if wildness == 0:
+            weights = {
+                "artist": 0.5,
+                "tracks": 0.5,
+            }
+
+        elif wildness == 1:
+            weights = {
+                "artist": 0.4,
+                "tracks": 0.3,
+                "genre_top": 0.2,
+                "single": 0.1,
+            }
+
+        elif wildness == 2:
+            weights = {
+                "artist": 0.3,
+                "tracks": 0.2,
+                "genre_top": 0.2,
+                "single": 0.15,
+                "genre_wild": 0.15,
+            }
+
+        elif wildness == 3:
+            weights = {
+                "artist": 0.2,
+                "tracks": 0.1,
+                "genre_top": 0.2,
+                "single": 0.15,
+                "genre_wild": 0.2,
+                "wildcard": 0.15,
+            }
+
+        else:
+            raise ValueError("wildness must be 0-3")
+        
+        counts = {k: int(v * length) for k, v in weights.items()}
+
+        missing = length - sum(counts.values())
+        if missing > 0:
+            keys = list(counts.keys())
+            for _ in range(missing):
+                counts[random.choice(keys)] += 1
+
+        if len(playlist) < length:
+            pool = list(set(
+                top_artist_tracks +
+                top_tracks +
+                top_genre_top_tracks +
+                top_genre_single_listens +
+                top_genre_wildcard +
+                genre_wildcard
+            ) - set(playlist))
+
+            new_tracks += self._take(pool, length - len(playlist))
+
+        return new_tracks
