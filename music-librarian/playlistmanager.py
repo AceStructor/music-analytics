@@ -51,6 +51,7 @@ class SubsonicClient:
         log.debug("Building MBID → Navidrome ID mapping...")
 
         mapping = {}
+        unmapped = []
 
         artists = self._get_artists()
 
@@ -77,8 +78,15 @@ class SubsonicClient:
 
             if mbid and sid:
                 mapping[mbid] = sid
+            if not mbid:
+                unmapped.append({
+                    "title": track.get["title"],
+                    "album": track.get["album"],
+                    "artist": track.get["artist"]
+                })
 
         log.debug(f"Mapped {len(mapping)} songs")
+        log.debug(f"{len(unmapped)} songs could not be mapped", unmapped=unmapped)
         return mapping
 
     def _get_artists(self) -> Optional[List[any]]:

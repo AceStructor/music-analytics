@@ -91,26 +91,7 @@ class DatabaseWriter:
                     WHERE t.mbid = m.mbid
                 """)
 
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS unmatched_navidrome_tracks (
-                        mbid UUID PRIMARY KEY,
-                        navidrome_id TEXT,
-                        detected_at TIMESTAMP DEFAULT NOW()
-                    )
-                """)
-
-                cur.execute("TRUNCATE unmatched_navidrome_tracks")
-
-                cur.execute("""
-                    INSERT INTO unmatched_navidrome_tracks (mbid, navidrome_id)
-                    SELECT m.mbid, m.navidrome_id
-                    FROM tmp_mapping m
-                    LEFT JOIN tracks t ON t.mbid = m.mbid
-                    WHERE t.mbid IS NULL
-                """)
-
             self.conn.commit()
-
         except psycopg2.Error as e:
             log.error("Error inserting navidrome IDs", error=str(e), exc_info=True)
             self.conn.rollback()
