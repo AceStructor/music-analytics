@@ -254,7 +254,7 @@ class DatabaseReader:
         try:
             with self.conn.cursor() as cur:
                 cur.execute("""
-                    SELECT al.id, al.name
+                    SELECT al.id, al.title
                     FROM albums al
                     LEFT JOIN artist_albums aal ON aal.album_id = al.id
                     LEFT JOIN artists a ON a.id = aal.artist_id
@@ -269,7 +269,7 @@ class DatabaseReader:
         for row in rows:
             albums.append({
                 "album_id": row[0],
-                "name": row[1]
+                "title": row[1]
             })
         return albums
 
@@ -292,7 +292,7 @@ class DatabaseReader:
         for row in rows:
             tracks.append({
                 "track_id": row[0],
-                "name": row[1]
+                "title": row[1]
             })
         return tracks
 
@@ -300,7 +300,7 @@ class DatabaseReader:
         try:
             with self.conn.cursor() as cur:
                 cur.execute("""
-                    SELECT id, name, navidrome_id
+                    SELECT id, name, navidrome_id, month
                     FROM playlists
                     ORDER BY month
                 """)
@@ -314,7 +314,8 @@ class DatabaseReader:
             playlists.append({
                 "playlist_id": row[0],
                 "name": row[1],
-                "navidrome_id": row[2]
+                "navidrome_id": row[2],
+                "month": row[3]
             })
         return playlists
     
