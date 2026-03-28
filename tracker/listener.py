@@ -173,15 +173,22 @@ class SongProcessor:
         self.db = db
 
     def process(self):
+        keys_to_remove = []
+
         for key in lastPlaybacks.keys():
             if key not in currentPlaybacks:
-                self._finalize_previous(key)
+                if self._finalize_previous(key):
+                     keys_to_remove.append(key)
         for key, state in currentPlaybacks.items():
             if self._is_new_song(key, state):
-                self._finalize_previous(key)
+                if self._finalize_previous(key):
+                    keys_to_remove.append(key)
                 self._reset(key, state)
 
             self._update_playtime(key)
+
+        for key in keys_to_remove:
+            del lastPlaybacks[key]
 
     def _is_new_song(self, key: str, state: PlaybackState) -> bool:
         lastState = lastPlaybacks.get(key)
@@ -199,13 +206,13 @@ class SongProcessor:
         lastState = lastPlaybacks.get(key)
         if not lastState:
             log.debug("No previous playback state to finalize", key=key)
-            return
+            return False
 
         if not lastState.song or lastState.accumulated_playtime < 100:
             log.debug("Song playtime below threshold; not finalizing previous song",
                      track_key=lastState.song.track_key if lastState.song else "N/A",
                      accumulated_playtime=lastState.accumulated_playtime)
-            return
+            return False
 
         if not lastState.song.duration:
             skipped = False
@@ -230,7 +237,7 @@ class SongProcessor:
             skipped=skipped,
         )
 
-        del lastPlaybacks[key]
+        return True
 
     def _reset(self, key: str, state: PlaybackState):
         lastPlaybacks[key] = state
