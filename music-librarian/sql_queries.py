@@ -61,13 +61,7 @@ SELECT 1;
 """
 
 DELETE_SQL = """
-WITH deleted_album AS (
-    DELETE FROM albums
-    WHERE mbid = %(album_mbid)s
-    RETURNING id
-),
-
-deleted_tracks AS (
+WITH deleted_tracks AS (
     DELETE FROM tracks t
     WHERE NOT EXISTS (
         SELECT 1
@@ -88,7 +82,6 @@ deleted_artists AS (
 )
 
 SELECT
-    (SELECT COUNT(*) FROM deleted_album)  AS albums_removed,
     (SELECT COUNT(*) FROM deleted_tracks) AS tracks_removed,
     (SELECT COUNT(*) FROM deleted_artists) AS artists_removed;
 """

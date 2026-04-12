@@ -51,20 +51,30 @@ class DatabaseWriter:
     
     def delete_album(self, mbid: str):
         try:
-            with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(DELETE_SQL, {
-                    "album_mbid": mbid
-                })
-                result = cur.fetchone()
+            with self.conn.cursor() as cur:
+                cur.execute("""
+                    DELETE FROM albums
+                    WHERE mbid = %s
+                """, (mbid,))
             self.conn.commit()
             log.debug("Deleted album", album_mbid=mbid)
         except psycopg2.Error as e:
-            log.error("Error inserting track", error=str(e), exc_info=True)
+            log.error("Error deleting album", error=str(e), exc_info=True)
+            self.conn.rollback()
+
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute(DELETE_SQL)
+                result = cur.fetchone()
+            self.conn.commit()
+            log.debug("Deleted album tracks and artists", album_mbid=mbid)
+        except psycopg2.Error as e:
+            log.error("Error deleting album tracks and artists", error=str(e), exc_info=True)
             self.conn.rollback()
 
         return {
-            "deleted_artists": result[2],
-            "deleted_tracks": result[1]
+            "deleted_artists": result[1],
+            "deleted_tracks": result[0]
         }
     
     def insert_navidrome_ids(self, mapping):
