@@ -18,7 +18,7 @@ from config import DB_CONFIG
 BEETS_IMPORT_DIR = "/import"
 WORKER_COUNT = 4
 POLL_INTERVAL = 5  # seconds
-YTDLP_FORMAT = "flac"
+YTDLP_FORMAT = "mp3"
 
 
 # Models
